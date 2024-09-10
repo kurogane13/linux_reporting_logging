@@ -1,0 +1,769 @@
+#!/bin/bash
+
+# Create directory if it doesn't exist
+report_dir="system_info_reports"
+mkdir -p "$report_dir"
+
+# Define file paths with timestamp and format
+timestamp=$(date +"%Y_%m_%d_%H_%M_%S")
+log_file="${report_dir}/system_info_${timestamp}.log"
+html_file="${report_dir}/system_info_report_${timestamp}.html"
+
+# Date format
+current_date=$(date +"%Y-%m-%d %H:%M:%S")
+
+# Extract Name and Version from /etc/os-release
+os_name=$(grep '^NAME=' /etc/os-release | cut -d= -f2 | tr -d '"')
+os_version=$(grep '^VERSION=' /etc/os-release | cut -d= -f2 | tr -d '"')
+os_title="${os_name} - ${os_version}"
+
+# Determine distribution color and style
+case "$os_name" in
+    "Ubuntu")
+        color_title="#FF6F00" # Fluorescent orange
+        color_footer="#FF6F00" # Fluorescent orange
+        ;;
+    "RHEL"|"Red Hat")
+        color_title="#C8102E" # Red
+        color_footer="#C8102E" # Red
+        ;;
+    "AlmaLinux")
+        color_title="#005F73" # Cool blue
+        color_footer="#005F73" # Cool blue
+        ;;
+    "Linux Mint")
+        color_title="#3C763D" # Mate green
+        color_footer="#3C763D" # Mate green
+        ;;
+    "Debian")
+        color_title="#0082FC" # Cool light blue
+        color_footer="#0082FC" # Cool light blue
+        ;;
+    "Fedora")
+        color_title="#1D3C6F" # Fedora blue
+        color_footer="#1D3C6F" # Fedora blue
+        ;;
+    "openSUSE")
+        color_title="#00A300" # openSUSE green
+        color_footer="#00A300" # openSUSE green
+        ;;
+    "Arch Linux")
+        color_title="#1793D1" # Arch blue
+        color_footer="#1793D1" # Arch blue
+        ;;
+    "Manjaro")
+        color_title="#3BCEAC" # Manjaro green
+        color_footer="#3BCEAC" # Manjaro green
+        ;;
+    *)
+        color_title="#00Aaff" # Default blue
+        color_footer="#00Aaff" # Default blue
+        ;;
+esac
+
+# Function to execute commands and log output with separators
+execute_command() {
+    local command="$1"
+    local description="$2"
+    local output=$(eval "$command")
+
+    # Log command description and output to HTML file
+    echo "<h3>$description</h3>" >> "$html_file"
+    echo "<pre>$output</pre>" >> "$html_file"
+
+    # Log command description and output to log file with separators
+    echo "--------------------------------------------------------------------------------------------------------" >> "$log_file"
+    echo "$current_date - $description" >> "$log_file"
+    echo "$output" >> "$log_file"
+    echo "--------------------------------------------------------------------------------------------------------" >> "$log_file"
+}
+
+# Function to execute commands and log errors with red borders
+execute_error_command() {
+    local command="$1"
+    local description="$2"
+    local output=$(eval "$command" 2>&1) # Capture both stdout and stderr
+
+    # Check if output contains errors
+    if echo "$output" | grep -i "error\|fail\|warn" > /dev/null; then
+        # Log error description and output to HTML file
+        echo "<h3 class='error-section'>$description</h3>" >> "$html_file"
+        echo "<pre>$output</pre>" >> "$html_file"
+
+        # Log error description and output to log file with separators
+        echo "--------------------------------------------------------------------------------------------------------" >> "$log_file"
+        echo "$current_date - ERROR: $description" >> "$log_file"
+        echo "$output" >> "$log_file"
+        echo "--------------------------------------------------------------------------------------------------------" >> "$log_file"
+    fi
+}
+
+# Create or clear the log and HTML files
+echo "Log created on $current_date" > "$log_file"
+cat <<EOF > "$html_file"
+<html>
+<head>
+    <title>System Info Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #1e1e1e;
+            color: #f4f4f4;
+        }
+        h1 {
+            color: $color_title;
+            text-align: center;
+            font-size: 3em;
+            margin: 20px;
+        }
+        h3 {
+            color: #ffffff;
+            background-color: #333;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 10px solid $color_title;
+            border-right: 10px solid $color_title;
+            border-radius: 5px;
+        }
+        .error-section {
+            color: #ffffff;
+            background-color: #333;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 15px solid red;
+            border-right: 15px solid red;
+            border-radius: 5px;
+        }
+        .error-count { color: red; font-weight: bold; text-align: center; display: block; }
+        pre {
+            background-color: #000;
+            color: #f4f4f4;
+            border: 1px solid #444;
+            padding: 15px;
+            overflow: auto;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .container {
+            width: 95%;
+            margin: 20px auto;
+            background: #2e2e2e;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .section:nth-child(odd) {
+            background-color: #3c3c3c;
+        }
+        .section:nth-child(even) {
+            background-color: #4a4a4a;
+        }
+        p {
+            font-size: 1.1em;
+            margin: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.1em;
+            color: #aaa;
+        }
+        .highlight {
+            background-color: $color_footer;
+            color: #000000;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 1.2em;
+            text-align: center;
+            text-shadow: 1px 1px 2px #000;
+            box-shadow: 0px 0px 10px $color_footer;
+        }
+        .timestamp {
+            background-color: $color_title;
+            color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 1.5em;
+            margin-top: 20px;
+            text-align: center;
+            text-shadow: 1px 1px 2px #000;
+            box-shadow: 0px 0px 10px $color_title;
+        }
+        .kernel-highlight {
+            background-color: $color_footer;
+            color: #000000;
+            padding: 5px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .footer-highlight {
+            background-color: $color_footer;
+            color: #000;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 1.3em;
+            text-align: center;
+            text-shadow: 1px 1px 2px #000;
+            box-shadow: 0px 0px 10px $color_footer;
+        }
+        .report-title {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: $color_title;
+            background-color: #333;
+            text-align: center;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.7);
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="report-title">$os_title - Linux System Information Report</div>
+        <p class="timestamp">Report Start timestamp: $current_date</p>
+EOF
+
+# Execute commands and append to HTML
+
+# Uptime details command
+uptime_details_command=$(cat <<- EOM
+echo "System Uptime - Human-readable format: \$(uptime --pretty)"
+echo "System Uptime - Booted since: \$(uptime --since)"
+echo "System Uptime - Standard format: \$(uptime)"
+EOM
+)
+
+# Main script execution
+echo
+date
+echo
+echo "Starting Linux system detailed report script..."
+echo
+cat /etc/os-release
+echo
+hostnamectl
+echo
+echo "Displaying system uptime details..."
+echo
+uptime -p
+echo
+echo "System is up since: " $(uptime -s -p)
+echo
+execute_command "$uptime_details_command" "System Uptime Details"
+
+execute_command "hostnamectl" "Hostname Information"
+execute_command "cat /etc/os-release" "OS Release Information"
+execute_command "uname -r" "Running Kernel Version"
+
+# Function to check for inxi and display system specs
+check_inxi() {
+    if command -v inxi &> /dev/null; then
+        echo "inxi is installed."
+        execute_command "inxi -Fx" "Inxi Detailed System Specs"
+    else
+        execute_command "echo 'inxi utility is not installed. Install it to get detailed specs about the system.'" "Inxi Detailed System Specs"
+    fi
+}
+check_inxi
+
+# Kernel details command
+kernel_details_command=$(cat <<- EOM
+echo "Kernel Version: \$(uname -r)"
+echo "Kernel Build: \$(uname -v)"
+echo "Machine Architecture: \$(uname -m)"
+echo "Processor Type: \$(uname -p)"
+echo "Operating System: \$(uname -o)"
+echo "Kernel Version from /proc: \$(cat /proc/version)"
+echo "Kernel Messages: \$(dmesg | grep 'Linux version')"
+EOM
+)
+
+# Main script execution
+execute_command "$kernel_details_command" "Kernel Details"
+
+# Function to highlight running kernel in the list of installed images
+highlight_running_kernel() {
+    local kernel_version=$(uname -r)
+    # Determine the distribution
+    distro=$(cat /etc/os-release | grep "^ID=" | cut -d'=' -f2 | tr -d '"' | tr '[:upper:]' '[:lower:]')
+
+    # Initialize the variable to store installed images
+    installed_images=""
+
+    # Check the distribution and run the appropriate command
+    if [[ "$distro" == "ubuntu" || "$distro" == "debian" ]]; then
+        local installed_images=$(dpkg --list | grep linux-image)
+    elif [[ "$distro" == "centos" || "$distro" == "rhel" ]]; then
+        local installed_images=$(rpm -qa | grep kernel)
+    else
+        echo "Unsupported distribution: $distro"
+        exit 1
+    fi
+    # Output the installed images
+    # echo "$installed_images"
+    local highlighted_images=$(echo "$installed_images" | sed "s/$kernel_version/<span class='kernel-highlight'>&<\/span>/g")
+    echo "$highlighted_images"
+}
+
+# Highlighted kernel command
+highlighted_kernel_command=$(cat <<- EOM
+highlight_running_kernel
+EOM
+)
+
+# Function to execute commands and log error counts in red
+execute_error_count() {
+    local command="$1"
+    local description="$2"
+    local count=$(eval "$command")
+
+    # Log error count description and output to HTML file with red border
+    echo "<h3 class='error-section'>$description</h3>" >> "$html_file"
+    echo "<p class='error-count'>$count</p>" >> "$html_file"
+
+    # Log error count description and output to log file with separators
+    echo "--------------------------------------------------------------------------------------------------------" >> "$log_file"
+    echo "$current_date - ERROR COUNT: $description" >> "$log_file"
+    echo "$count" >> "$log_file"
+    echo "--------------------------------------------------------------------------------------------------------" >> "$log_file"
+}
+
+# Execute the command with kernel highlight
+execute_command "$highlighted_kernel_command" "Installed Linux Images with Highlighted Running Kernel"
+
+# Amount of installed kernels
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Check for dpkg and rpm commands
+if command_exists dpkg; then
+    echo "dpkg is installed."
+    execute_command "dpkg --list | grep linux-image | wc -l" "Amount of APT Installed Kernels"
+elif command_exists rpm; then
+    execute_command "rpm -qa | grep kernel | wc -l" "Amount of RPM Installed Kernels"
+elif command_exists yum; then
+    execute_command "yum list installed kernel | wc -l" "Amount of YUM Installed kernels"
+elif command_exists dnf; then
+    execute_command "dnf list installed kernel | wc -l" "Amount of DNF Installed Kernels"
+else
+    execute_error_command "Error: Neither dpkg, rpm, yum nor dnf package managers were found installed" "Amount of Installed Kernels"
+fi
+
+# Amount of kernel modules
+execute_command "find /lib/modules/$(uname -r)/kernel/ -name '*.ko*' | wc -l" "Amount of Kernel Modules"
+
+# List of kernel modules
+execute_command "find /lib/modules/$(uname -r)/kernel/ -name '*.ko*'" "Running Kernel Modules List"
+
+# Ip address info
+execute_command "ip a" "Ip address information"
+
+execute_command "df -h" "Disk Usage Information"
+execute_command "free -h" "Memory Usage Information"
+execute_command "top -b -n 1" "Top Command Output (One Snapshot)"
+execute_command "last" "Last Logins"
+
+# Check for errors in system logs
+execute_error_command "journalctl -p err" "Journalctl: Errors in System Logs"
+execute_error_command "dmesg | grep -i 'error\|fail\|warn'" "Dmesg Kernel Errors"
+
+# Check for /var/log/auth.log and look for errors or authentication failures
+if [ -f /var/log/auth.log ]; then
+  execute_error_command "cat /var/log/auth.log | grep -E 'error|authentication failure'" "Errors in /var/log/auth.log"
+  execute_error_count "cat /var/log/auth.log | grep -E 'error|authentication failure' | wc -l" "Amount of Errors in /var/log/auth.log"
+
+fi
+
+# Check for /var/log/secure and look for errors or authentication failures
+if [ -f /var/log/secure ]; then
+  execute_error_command "cat /var/log/secure | grep -E 'error|authentication failure'" "Errors in /var/log/secure"
+  execute_error_count "grep -E 'error|authentication failure' /var/log/secure | wc -l" "Amount of Errors in /var/log/secure"
+fi
+
+execute_error_count "journalctl -p err | wc -l" "Amount of errors in Journalctl"
+execute_error_count "dmesg | grep -i 'error\|fail\|warn' | wc -l" "Amount of errors in Dmesg"
+
+
+# Function to check for Debian-based distribution
+check_debian() {
+    if command -v apt &> /dev/null; then
+        echo "APT is installed."
+        execute_command "apt list --installed" "APT Installed Packages"
+
+        # Amount of APT packages
+        execute_command "apt list --installed | wc -l" "Amount of Installed APT Packages"
+    elif command -v dnf &> /dev/null; then
+        echo "DNF is installed but the system is Debian-based."
+        execute_command "dnf list installed" "DNF Installed Packages"
+    elif command -v yum &> /dev/null; then
+        echo "YUM is installed but the system is Debian-based."
+        execute_command "yum list installed" "YUM Installed Packages"
+    else
+        echo "No known package manager found (APT, DNF, or YUM)."
+    fi
+}
+
+# Function to check for RPM command
+check_rpm() {
+    if command -v rpm &> /dev/null; then
+        echo "RPM is installed."
+        execute_command "rpm -qa" "RPM Installed Packages"
+
+        # Amount of RPM packages
+        execute_command "rpm -qa | wc -l" "Amount of Installed RPM Packages"
+    else
+        echo "RPM is not installed."
+    fi
+}
+
+check_yum() {
+    if command -v yum &> /dev/null; then
+        echo "YUM is installed."
+        execute_command "yum list installed" "YUM Installed Packages"
+
+        # Amount of RPM packages
+        execute_command "yum list installed | wc -l" "Amount of Installed YUM Packages"
+    else
+        echo "YUM is not installed."
+    fi
+}
+
+# Function to check for RHEL-based distribution
+check_rhel() {
+    if command -v dnf &> /dev/null; then
+        echo "DNF is installed."
+        execute_command "dnf list installed" "DNF Installed Packages"
+
+        # Amount of DNF packages
+        execute_command "dnf list installed | wc -l" "Amount of Installed DNF Packages"
+    else
+        echo "No known package manager found DNF."
+    fi
+}
+
+# Identify the Linux distribution and execute relevant commands
+distro=$(grep "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"')
+distro=$(echo "$distro" | tr '[:upper:]' '[:lower:]')  # Convert to lowercase
+
+case "$distro" in
+    "debian"|"ubuntu")
+        check_debian
+        ;;
+    "rhel"|"centos"|"fedora"|"alma"|"rocky")
+        check_rhel
+        check_yum
+        check_rpm
+        ;;
+    *)
+        echo "Unsupported distribution: $distro"
+        ;;
+esac
+
+
+
+# Check for apt history log
+if [ -f /var/log/apt/history.log ]; then
+    execute_command "cat /var/log/apt/history.log" "Last APT History Logfile Output"
+    execute_command "zcat /var/log/apt/history.log.1.gz" "Second archived APT History Logfile Output"
+    execute_command "zcat /var/log/apt/history.log.1.gz" "Third archived APT History Logfile Output"
+fi
+
+# Check for yum history log
+if [ -f /var/log/yum.log ]; then
+    execute_command "cat /var/log/yum.log" "YUM History Logfile Output"
+fi
+
+# If neither log file is found
+if [ ! -f /var/log/apt/history.log ] && [ ! -f /var/log/yum.log ]; then
+    echo "No package manager history file found."
+fi
+
+# Close the HTML file
+cat <<EOF >> "$html_file"
+    <div class="footer">
+        <p class="footer-highlight">Report End timestamp: $(date +"%Y-%m-%d %H:%M:%S")</p>
+        <p class="footer-highlight">Generated by System Info Script</p>
+    </div>
+</body>
+</html>
+EOF
+
+# Define previous report paths
+prev_report_log=$(ls -t ${report_dir}/system_info_*.log | sed -n '2p')
+prev_report_html=$(ls -t ${report_dir}/system_info_report_*.html | sed -n '2p')
+
+echo "System information has been collected and saved to $log_file and $html_file."
+
+#---------------------------------------------END OF HTML AND LOG REPORT---------------------------------------------#
+
+#---------------------------------------------BEGINNING OF DIFFS REPORT---------------------------------------------#
+
+#!/bin/bash
+
+# Define the directory where reports are saved
+report_dir="system_info_reports"
+
+# Define the file patterns for report logs
+log_pattern="system_info_*.log"
+
+# Get the two most recent log files
+log_files=($(ls -1t "$report_dir"/$log_pattern | head -n 2))
+
+# Check if we have at least two log files
+if [ ${#log_files[@]} -lt 2 ]; then
+    echo "Not enough log files found. Ensure there are at least two log files."
+    exit 1
+fi
+
+# Assign the latest and second latest files
+latest_file="${log_files[0]}"
+second_latest_file="${log_files[1]}"
+
+# Extract the datestamp from each file
+latest_timestamp=$(basename "$latest_file" | sed 's/system_info_\(.*\)\.log/\1/')
+second_latest_timestamp=$(basename "$second_latest_file" | sed 's/system_info_\(.*\)\.log/\1/')
+
+# Determine the system type
+if grep -qi "debian" /etc/os-release || grep -qi "ubuntu" /etc/os-release; then
+    system_type="debian"
+elif grep -qi "centos" /etc/os-release || grep -qi "rhel" /etc/os-release || grep -qi "rocky" /etc/os-release || grep -qi "alma" /etc/os-release; then
+    system_type="rhel"
+else
+    system_type="unknown"
+fi
+
+# Extract Hostname Information section from "Static hostname" to "Operating System"
+latest_hostname_info=$(awk '/Static hostname/{flag=1} /Operating System/{flag=0} flag' "$latest_file")
+second_latest_hostname_info=$(awk '/Static hostname/{flag=1} /Operating System/{flag=0} flag' "$second_latest_file")
+
+# Compare the hostname information between the two log files
+if [ "$latest_hostname_info" != "$second_latest_hostname_info" ]; then
+    echo "The systems in the log files are different. Aborting the report generation."
+    echo "Latest System Info ($latest_timestamp):"
+    echo "$latest_hostname_info"
+    echo "Second Latest System Info ($second_latest_timestamp):"
+    echo "$second_latest_hostname_info"
+    exit 1
+else
+    echo "The systems in the two previous reports are the same. Proceeding with the report..."
+fi
+
+# Initialize variables for package counts
+latest_kernels=""
+latest_modules=""
+latest_packages=""
+latest_journalctl_errors=""
+latest_dmesg_errors=""
+latest_authlog_errors=""
+latest_yum_packages=""
+latest_rpm_packages=""
+latest_dnf_packages=""
+
+second_latest_kernels=""
+second_latest_modules=""
+second_latest_packages=""
+second_latest_journalctl_errors=""
+second_latest_dmesg_errors=""
+second_latest_authlog_errors=""
+second_latest_yum_packages=""
+second_latest_rpm_packages=""
+second_latest_dnf_packages=""
+
+# Extract values from the latest log file based on the system type
+if [ "$system_type" = "debian" ]; then
+    latest_kernels=$(grep -A 1 "Amount of APT Installed Kernels" "$latest_file" | tail -n 1)
+    latest_modules=$(grep -A 1 "Amount of Kernel Modules" "$latest_file" | tail -n 1)
+    latest_packages=$(grep -A 1 "Amount of Installed APT Packages" "$latest_file" | tail -n 1)
+    latest_journalctl_errors=$(grep -A 1 "Amount of errors in Journalctl" "$latest_file" | tail -n 1)
+    latest_dmesg_errors=$(grep -A 1 "Amount of errors in Dmesg" "$latest_file" | tail -n 1)
+    latest_authlog_errors=$(grep -A 1 "Amount of Errors in /var/log/auth.log" "$latest_file" | tail -n 1)
+else
+    latest_yum_packages=$(grep -A 1 "Amount of Installed YUM Packages" "$latest_file" | tail -n 1)
+    latest_rpm_packages=$(grep -A 1 "Amount of Installed RPM Packages" "$latest_file" | tail -n 1)
+    latest_dnf_packages=$(grep -A 1 "Amount of Installed DNF Packages" "$latest_file" | tail -n 1)
+    latest_journalctl_errors=$(grep -A 1 "Amount of errors in Journalctl" "$latest_file" | tail -n 1)
+    latest_dmesg_errors=$(grep -A 1 "Amount of errors in Dmesg" "$latest_file" | tail -n 1)
+    latest_authlog_errors=$(grep -A 1 "Amount of Errors in /var/log/auth.log" "$latest_file" | tail -n 1)
+    latest_secure_errors=$(grep -A 1 "Amount of Errors in /var/log/secure" "$latest_file" | tail -n 1)
+fi
+
+# Extract values from the second latest log file based on the system type
+if [ "$system_type" = "debian" ]; then
+    second_latest_kernels=$(grep -A 1 "Amount of APT Installed Kernels" "$second_latest_file" | tail -n 1)
+    second_latest_modules=$(grep -A 1 "Amount of Kernel Modules" "$second_latest_file" | tail -n 1)
+    second_latest_packages=$(grep -A 1 "Amount of Installed APT Packages" "$second_latest_file" | tail -n 1)
+    second_latest_journalctl_errors=$(grep -A 1 "Amount of errors in Journalctl" "$second_latest_file" | tail -n 1)
+    second_latest_dmesg_errors=$(grep -A 1 "Amount of errors in Dmesg" "$second_latest_file" | tail -n 1)
+    second_latest_authlog_errors=$(grep -A 1 "Amount of Errors in /var/log/auth.log" "$second_latest_file" | tail -n 1)
+else
+    second_latest_yum_packages=$(grep -A 1 "Amount of Installed YUM Packages" "$second_latest_file" | tail -n 1)
+    second_latest_rpm_packages=$(grep -A 1 "Amount of Installed RPM Packages" "$second_latest_file" | tail -n 1)
+    second_latest_dnf_packages=$(grep -A 1 "Amount of Installed DNF Packages" "$second_latest_file" | tail -n 1)
+    second_latest_journalctl_errors=$(grep -A 1 "Amount of errors in Journalctl" "$second_latest_file" | tail -n 1)
+    second_latest_dmesg_errors=$(grep -A 1 "Amount of errors in Dmesg" "$second_latest_file" | tail -n 1)
+    second_latest_authlog_errors=$(grep -A 1 "Amount of Errors in /var/log/auth.log" "$second_latest_file" | tail -n 1)
+    second_latest_secure_errors=$(grep -A 1 "Amount of Errors in /var/log/secure" "$second_latest_file" | tail -n 1)
+fi
+
+# Calculate deltas, handle empty values
+delta_kernels=$((latest_kernels - second_latest_kernels))
+delta_modules=$((latest_modules - second_latest_modules))
+delta_packages=$((latest_packages - second_latest_packages))
+delta_journalctl_errors=$((latest_journalctl_errors - second_latest_journalctl_errors))
+delta_dmesg_errors=$((latest_dmesg_errors - second_latest_dmesg_errors))
+delta_authlog_errors=$((latest_authlog_errors - second_latest_authlog_errors))
+delta_secure_errors=$((latest_secure_errors - second_latest_secure_errors))
+delta_yum_packages=$((latest_yum_packages - second_latest_yum_packages))
+delta_rpm_packages=$((latest_rpm_packages - second_latest_rpm_packages))
+delta_dnf_packages=$((latest_dnf_packages - second_latest_dnf_packages))
+
+# Generate the diff report based on the detected system type
+diff_file="system_info_reports/diff_report_$(date +'%Y_%m_%d_%H_%M_%S').html"
+
+# Extract Name and Version from /etc/os-release
+os_name=$(grep '^NAME=' /etc/os-release | cut -d= -f2 | tr -d '"')
+os_version=$(grep '^VERSION=' /etc/os-release | cut -d= -f2 | tr -d '"')
+os_title="${os_name} - ${os_version}"
+
+cat <<EOF > "$diff_file"
+<html>
+<head>
+    <title>$os_title - System Info Diff Report</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.4; margin: 0; padding: 0; background-color: #1e1e1e; color: #e0e0e0; }
+        h1 { color: #00ffff; text-align: center; font-size: 2em; margin: 15px; }
+        h3 { color: #ffffff; background-color: #333333; padding: 5px; margin: 5px 0; border-left: 6px solid #00ffff; border-right: 6px solid #00ffff; border-radius: 5px; font-size: 1.2em; }
+        .code-block { background-color: #000000; color: #ffffff; border: 1px solid #ffffff; padding: 10px; border-radius: 5px; white-space: pre-wrap; overflow: auto; font-family: 'Courier New', Courier, monospace; margin-bottom: 10px; }
+        .value-box { background-color: #39ff14; color: #000000; border: 1px solid #00ff00; padding: 8px; border-radius: 5px; display: inline-block; margin: 0 5px; font-size: 1em; font-weight: bold; }
+        .delta { color: #ff6347; font-weight: bold; }
+        .footer { text-align: center; margin-top: 15px; font-size: 0.8em; color: #888888; }
+        .footer-highlight { background-color: #00ffff; color: #000000; padding: 8px; border-radius: 5px; font-size: 0.9em; text-align: center; }
+        .container { width: 90%; margin: 10px auto; background: #2a2a2a; padding: 15px; border-radius: 8px; box-shadow: 0 0 8px rgba(0, 255, 255, 0.5); }
+        .report-section { margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>$os_title - System Information Diff Report</h1>
+        <div class="code-block">
+            Latest Report ($latest_timestamp):
+<pre>$latest_hostname_info</pre>
+        </div>
+        <div class="code-block">
+            Second Latest Report ($second_latest_timestamp):
+<pre>$second_latest_hostname_info</pre>
+        </div>
+EOF
+
+# Append Debian-specific sections
+if [ "$system_type" = "debian" ]; then
+    cat <<EOF >> "$diff_file"
+        <div class="code-block">
+            <h3>Amount of APT Installed Kernels</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_kernels</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_kernels</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_kernels</span></p>
+        </div>
+        <div class="code-block">
+            <h3>Amount of Kernel Modules</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_modules</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_modules</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_modules</span></p>
+        </div>
+        <div class="code-block">
+            <h3>Amount of Installed APT Packages</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_packages</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_packages</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_packages</span></p>
+        </div>
+        <div class="code-block">
+            <h3>Amount of Errors in Journalctl</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_journalctl_errors</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_journalctl_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_journalctl_errors</span></p>
+        </div>
+        <div class="code-block">
+            <h3>Amount of Errors in Dmesg</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_dmesg_errors</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_dmesg_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_dmesg_errors</span></p>
+        </div>
+        <div class="code-block">
+            <h3>Amount of Errors in /var/log/auth.log</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_authlog_errors</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_authlog_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_authlog_errors</span></p>
+        </div>
+EOF
+elif [ "$system_type" = "rhel" ]; then
+    cat <<EOF >> "$diff_file"
+        <div class="code-block">
+            <h3>Amount of Installed YUM Packages</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_yum_packages</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_yum_packages</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_yum_packages</span></p>
+        </div>
+        <div class="code-block">
+            <h3>Amount of Installed RPM Packages</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_rpm_packages</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_rpm_packages</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_rpm_packages</span></p>
+        </div>
+        <div class="code-block">
+            <h3>Amount of Installed DNF Packages</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_dnf_packages</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_dnf_packages</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_dnf_packages</span></p>
+        </div>
+        <div class="code-block">
+            <h3>Amount of Errors in Journalctl</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_journalctl_errors</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_journalctl_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_journalctl_errors</span></p>
+        </div>
+        <div class="code-block">
+            <h3>Amount of Errors in Dmesg</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_dmesg_errors</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_dmesg_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_dmesg_errors</span></p>
+        </div>
+        <div class="code-block">
+            <h3>Amount of Errors in /var/log/auth.log</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_authlog_errors</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_authlog_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_authlog_errors</span></p>
+        </div>
+        <div class="code-block">
+            <h3>Amount of Errors in /var/log/secure</h3>
+            <p class="report-section">Latest Report Count: <span class="value-box">$latest_secure_errors</span></p>
+            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_secure_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_secure_errors</span></p>
+        </div>
+EOF
+fi
+
+cat <<EOF >> "$diff_file"
+        <div class="footer">
+            <p class="footer-highlight">End of Report</p>
+        </div>
+    </div>
+</body>
+</html>
+EOF
+
+echo "Diff report generated: $diff_file"
+
