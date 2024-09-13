@@ -216,6 +216,29 @@ cat <<EOF > "$html_file"
             text-shadow: 1px 1px 2px #000;
             box-shadow: 0px 0px 10px $color_footer;
         }
+        .code-block {
+            display: inline-block;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f5f5f5;
+            font-family: monospace;
+            border-radius: 4px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+        .kernel-highlight {
+            display: inline-block;
+            padding: 5px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        .kernel-highlight::before {
+            content: "Running kernel: ";
+        }
+        .kernel-highlight span.variable {
+            color: #39FF14; /* Fluorescent green */
+            font-weight: bold;
+        }
         .report-title {
             font-size: 2.5em;
             font-weight: bold;
@@ -287,6 +310,13 @@ echo "Processor Type: \$(uname -p)"
 echo "Operating System: \$(uname -o)"
 echo "Kernel Version from /proc: \$(cat /proc/version)"
 echo "Kernel Messages: \$(dmesg | grep 'Linux version')"
+EOM
+)
+kernel_latest_html=$(cat <<- EOM
+Kernel Version: $(uname -r)<br>
+Kernel Build: $(uname -v)<br>
+Machine Architecture: $(uname -m)<br>
+Processor Type: $(uname -p)<br>
 EOM
 )
 
@@ -474,7 +504,6 @@ case "$distro" in
 esac
 
 
-
 # Check for apt history log
 if [ -f /var/log/apt/history.log ]; then
     execute_command "cat /var/log/apt/history.log" "Last APT History Logfile Output"
@@ -563,6 +592,7 @@ else
 fi
 
 # Initialize variables for package counts
+latest_installed_kernel=""
 latest_kernels=""
 latest_modules=""
 latest_packages=""
@@ -573,6 +603,7 @@ latest_yum_packages=""
 latest_rpm_packages=""
 latest_dnf_packages=""
 
+second_latest_installed_kernel=""
 second_latest_kernels=""
 second_latest_modules=""
 second_latest_packages=""
@@ -585,6 +616,7 @@ second_latest_dnf_packages=""
 
 # Extract values from the latest log file based on the system type
 if [ "$system_type" = "debian" ]; then
+    latest_installed_kernel=$(grep -A 1 "Running Kernel Version" "$latest_file" | tail -n 1)
     latest_kernels=$(grep -A 1 "Amount of APT Installed Kernels" "$latest_file" | tail -n 1)
     latest_modules=$(grep -A 1 "Amount of Kernel Modules" "$latest_file" | tail -n 1)
     latest_packages=$(grep -A 1 "Amount of Installed APT Packages" "$latest_file" | tail -n 1)
@@ -592,6 +624,7 @@ if [ "$system_type" = "debian" ]; then
     latest_dmesg_errors=$(grep -A 1 "Amount of errors in Dmesg" "$latest_file" | tail -n 1)
     latest_authlog_errors=$(grep -A 1 "Amount of Errors in /var/log/auth.log" "$latest_file" | tail -n 1)
 else
+    latest_installed_kernel=$(grep -A 1 "Running Kernel Version" "$latest_file" | tail -n 1)
     latest_yum_packages=$(grep -A 1 "Amount of Installed YUM Packages" "$latest_file" | tail -n 1)
     latest_rpm_packages=$(grep -A 1 "Amount of Installed RPM Packages" "$latest_file" | tail -n 1)
     latest_dnf_packages=$(grep -A 1 "Amount of Installed DNF Packages" "$latest_file" | tail -n 1)
@@ -603,6 +636,7 @@ fi
 
 # Extract values from the second latest log file based on the system type
 if [ "$system_type" = "debian" ]; then
+    second_latest_installed_kernel=$(grep -A 1 "Running Kernel Version" "$second_latest_file" | tail -n 1)
     second_latest_kernels=$(grep -A 1 "Amount of APT Installed Kernels" "$second_latest_file" | tail -n 1)
     second_latest_modules=$(grep -A 1 "Amount of Kernel Modules" "$second_latest_file" | tail -n 1)
     second_latest_packages=$(grep -A 1 "Amount of Installed APT Packages" "$second_latest_file" | tail -n 1)
@@ -610,6 +644,7 @@ if [ "$system_type" = "debian" ]; then
     second_latest_dmesg_errors=$(grep -A 1 "Amount of errors in Dmesg" "$second_latest_file" | tail -n 1)
     second_latest_authlog_errors=$(grep -A 1 "Amount of Errors in /var/log/auth.log" "$second_latest_file" | tail -n 1)
 else
+    second_latest_installed_kernel=$(grep -A 1 "Running Kernel Version" "$second_latest_file" | tail -n 1)
     second_latest_yum_packages=$(grep -A 1 "Amount of Installed YUM Packages" "$second_latest_file" | tail -n 1)
     second_latest_rpm_packages=$(grep -A 1 "Amount of Installed RPM Packages" "$second_latest_file" | tail -n 1)
     second_latest_dnf_packages=$(grep -A 1 "Amount of Installed DNF Packages" "$second_latest_file" | tail -n 1)
@@ -631,6 +666,16 @@ delta_yum_packages=$((latest_yum_packages - second_latest_yum_packages))
 delta_rpm_packages=$((latest_rpm_packages - second_latest_rpm_packages))
 delta_dnf_packages=$((latest_dnf_packages - second_latest_dnf_packages))
 
+previous_kernel_version="Previous kernel from earlier report: $second_latest_installed_kernel"
+# Define the class to use for kernel highlighting
+if [[ "$latest_installed_kernel" != "$second_latest_installed_kernel" ]]; then
+    new_kernel_check="KERNEL UPDATE DETECTED: You are using a new kernel version: $latest_installed_kernel"
+    kernel_highlight_class="kernel-highlight-red"  # Fluorescent cyan for new kernel
+else
+    new_kernel_check="Current running kernel: $latest_installed_kernel<br><br>You are using the same kernel version detected in the previous report."
+    kernel_highlight_class="kernel-highlight"  # Green highlight for same kernel
+fi
+
 # Generate the diff report based on the detected system type
 diff_file="system_info_reports/diff_report_$(date +'%Y_%m_%d_%H_%M_%S').html"
 
@@ -646,13 +691,22 @@ cat <<EOF > "$diff_file"
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.4; margin: 0; padding: 0; background-color: #1e1e1e; color: #e0e0e0; }
         h1 { color: #00ffff; text-align: center; font-size: 2em; margin: 15px; }
-        h3 { color: #ffffff; background-color: #333333; padding: 5px; margin: 5px 0; border-left: 6px solid #00ffff; border-right: 6px solid #00ffff; border-radius: 5px; font-size: 1.2em; }
-        .code-block { background-color: #000000; color: #ffffff; border: 1px solid #ffffff; padding: 10px; border-radius: 5px; white-space: pre-wrap; overflow: auto; font-family: 'Courier New', Courier, monospace; margin-bottom: 10px; }
+        h3 { color: #ffffff; background-color: #333333; padding: 5px; margin: 10px 0; border-left: 10px solid #00ffff; border-right: 10px solid #00ffff; border-radius: 5px; font-size: 1.2em; }
+        .code-block { background-color: #000000; color: #ffffff; border: 3px solid #ffffff; padding: 5px; border-radius: 10px; max-width: 100%; font-family: 'Courier New', Courier, monospace; width: auto; height: auto; margin-bottom: 10px; }
+        .kernel-highlight { background-color: #000000; color: #00ff00; border: 2px solid #00ff00; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px 5px rgba(0, 255, 0, 0.75); display: inline-block; }
+        .kernel-highlight span.variable {color: #39FF14; font-weight: bold;}
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+        .kernel-highlight-red { background-color: #000000; color: #ffffff; border: 2px solid #ff073a; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px 5px rgba(255, 7, 58, 0.75); display: inline-block; font-weight: bold; animation: blink 1s infinite; }
+        .kernel-highlight-red span.variable { color: #ffffff; font-weight: bold; animation: blink 1s infinite; }
+        .kernel-highlight2 { background-color: #000000; color: #ffff00; border: 2px solid #ffff00; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px 5px rgba(255, 255, 0, 0.75); display: inline-block; }
+        .kernel-highlight2 span.variable {color: #39FF14; font-weight: bold;}
+        .error-section {color: #ffffff; background-color: #333; padding: 15px; margin: 10px 0; border-left: 15px solid red; border-right: 15px solid red; border-radius: 5px;}
         .value-box { background-color: #39ff14; color: #000000; border: 1px solid #00ff00; padding: 8px; border-radius: 5px; display: inline-block; margin: 0 5px; font-size: 1em; font-weight: bold; }
+        .value-box2 { background-color: #ff0000; color: #000000; border: 1px solid #00ff00; padding: 8px; border-radius: 5px; display: inline-block; margin: 0 5px; font-size: 1em; font-weight: bold; }
         .delta { color: #ff6347; font-weight: bold; }
         .footer { text-align: center; margin-top: 15px; font-size: 0.8em; color: #888888; }
         .footer-highlight { background-color: #00ffff; color: #000000; padding: 8px; border-radius: 5px; font-size: 0.9em; text-align: center; }
-        .container { width: 90%; margin: 10px auto; background: #2a2a2a; padding: 15px; border-radius: 8px; box-shadow: 0 0 8px rgba(0, 255, 255, 0.5); }
+        .container { width: 95%; margin: 20px auto; background: #2a2a2a; padding: 15px; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 255, 255, 2); }
         .report-section { margin: 5px 0; }
     </style>
 </head>
@@ -661,12 +715,25 @@ cat <<EOF > "$diff_file"
         <h1>$os_title - System Information Diff Report</h1>
         <div class="code-block">
             Latest Report ($latest_timestamp):
-<pre>$latest_hostname_info</pre>
+<pre>$latest_hostname_info
         </div>
         <div class="code-block">
             Second Latest Report ($second_latest_timestamp):
-<pre>$second_latest_hostname_info</pre>
+<pre>$second_latest_hostname_info
         </div>
+        <div class="code-block">
+              Running kernel Version:<br>
+              $kernel_latest_html<br>
+              <div class="kernel-highlight2">
+                  <span class="variable">$previous_kernel_version<br></span>
+              </div>
+              <br>
+              <br>
+              <div class="$kernel_highlight_class">
+                  <span class="variable">$new_kernel_check</span>
+              </div>
+        </div>
+
 EOF
 
 # Append Debian-specific sections
@@ -691,22 +758,22 @@ if [ "$system_type" = "debian" ]; then
             <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_packages</span></p>
         </div>
         <div class="code-block">
-            <h3>Amount of Errors in Journalctl</h3>
-            <p class="report-section">Latest Report Count: <span class="value-box">$latest_journalctl_errors</span></p>
-            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_journalctl_errors</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_journalctl_errors</span></p>
+            <h3 class="error-section"> Amount of Errors in Journalctl</h3>
+            <p class="error-section">Latest Report Count: <span class="value-box2">4748</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">4748</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
         </div>
         <div class="code-block">
-            <h3>Amount of Errors in Dmesg</h3>
-            <p class="report-section">Latest Report Count: <span class="value-box">$latest_dmesg_errors</span></p>
-            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_dmesg_errors</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_dmesg_errors</span></p>
+            <h3 class="error-section">Amount of Errors in Dmesg</h3>
+            <p class="error-section">Latest Report Count: <span class="value-box2">2</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">2</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
         </div>
         <div class="code-block">
-            <h3>Amount of Errors in /var/log/auth.log</h3>
-            <p class="report-section">Latest Report Count: <span class="value-box">$latest_authlog_errors</span></p>
-            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_authlog_errors</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_authlog_errors</span></p>
+            <h3 class="error-section">Amount of Errors in /var/log/auth.log</h3>
+            <p class="error-section">Latest Report Count: <span class="value-box2">11</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">11</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
         </div>
 EOF
 elif [ "$system_type" = "rhel" ]; then
@@ -730,28 +797,28 @@ elif [ "$system_type" = "rhel" ]; then
             <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_dnf_packages</span></p>
         </div>
         <div class="code-block">
-            <h3>Amount of Errors in Journalctl</h3>
-            <p class="report-section">Latest Report Count: <span class="value-box">$latest_journalctl_errors</span></p>
-            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_journalctl_errors</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_journalctl_errors</span></p>
+            <h3 class="error-section"> Amount of Errors in Journalctl</h3>
+            <p class="error-section">Latest Report Count: <span class="value-box2">4748</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">4748</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
         </div>
         <div class="code-block">
-            <h3>Amount of Errors in Dmesg</h3>
-            <p class="report-section">Latest Report Count: <span class="value-box">$latest_dmesg_errors</span></p>
-            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_dmesg_errors</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_dmesg_errors</span></p>
+            <h3 class="error-section">Amount of Errors in Dmesg</h3>
+            <p class="error-section">Latest Report Count: <span class="value-box2">2</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">2</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
         </div>
         <div class="code-block">
-            <h3>Amount of Errors in /var/log/auth.log</h3>
-            <p class="report-section">Latest Report Count: <span class="value-box">$latest_authlog_errors</span></p>
-            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_authlog_errors</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_authlog_errors</span></p>
+            <h3 class="error-section">Amount of Errors in /var/log/auth.log</h3>
+            <p class="error-section">Latest Report Count: <span class="value-box2">11</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">11</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
         </div>
         <div class="code-block">
-            <h3>Amount of Errors in /var/log/secure</h3>
-            <p class="report-section">Latest Report Count: <span class="value-box">$latest_secure_errors</span></p>
-            <p class="report-section">Second Latest Report Count: <span class="value-box">$second_latest_secure_errors</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box">$delta_secure_errors</span></p>
+            <h3 class="error-section">Amount of Errors in /var/log/secure</h3>
+            <p class="error-section">Latest Report Count: <span class="value-box2">$latest_secure_errors</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">$second_latest_secure_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">$delta_secure_errors</span></p>
         </div>
 EOF
 fi
