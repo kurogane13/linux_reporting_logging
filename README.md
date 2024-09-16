@@ -48,7 +48,7 @@ cd linux-system-report
 ```
 ### 3. Provide read and write permissions
 ```bash
-sudo chmod +rx linux_system_report.sh
+sudo chmod +rx linux_system_report_<version_number>.sh
 ```
 ### 4. Run the script with sudo
 ```bash
