@@ -408,7 +408,7 @@ execute_command "top -b -n 1" "Top Command Output (One Snapshot)"
 execute_command "last" "Last Logins"
 
 # Check for errors in system logs
-execute_error_command "journalctl -p err" "Journalctl: Errors in System Logs"
+execute_error_command "journalctl -b --grep 'error'" "Journalctl: Errors in System Logs"
 execute_error_command "dmesg | grep -i 'error\|fail\|warn'" "Dmesg Kernel Errors"
 
 # Check for /var/log/auth.log and look for errors or authentication failures
@@ -424,7 +424,7 @@ if [ -f /var/log/secure ]; then
   execute_error_count "grep -E 'error|authentication failure' /var/log/secure | wc -l" "Amount of Errors in /var/log/secure"
 fi
 
-execute_error_count "journalctl -p err | wc -l" "Amount of errors in Journalctl"
+execute_error_count "journalctl -b --grep 'error' | wc -l" "Amount of errors in Journalctl"
 execute_error_count "dmesg | grep -i 'error\|fail\|warn' | wc -l" "Amount of errors in Dmesg"
 
 
@@ -695,7 +695,7 @@ cat <<EOF > "$diff_file"
         .code-block { background-color: #000000; color: #ffffff; border: 3px solid #ffffff; padding: 5px; border-radius: 10px; max-width: 100%; font-family: 'Courier New', Courier, monospace; width: auto; height: auto; margin-bottom: 10px; }
         .kernel-highlight { background-color: #000000; color: #00ff00; border: 2px solid #00ff00; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px 5px rgba(0, 255, 0, 0.75); display: inline-block; }
         .kernel-highlight span.variable {color: #39FF14; font-weight: bold;}
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
         .kernel-highlight-red { background-color: #000000; color: #ffffff; border: 2px solid #ff073a; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px 5px rgba(255, 7, 58, 0.75); display: inline-block; font-weight: bold; animation: blink 1s infinite; }
         .kernel-highlight-red span.variable { color: #ffffff; font-weight: bold; animation: blink 1s infinite; }
         .kernel-highlight2 { background-color: #000000; color: #ffff00; border: 2px solid #ffff00; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px 5px rgba(255, 255, 0, 0.75); display: inline-block; }
@@ -759,21 +759,21 @@ if [ "$system_type" = "debian" ]; then
         </div>
         <div class="code-block">
             <h3 class="error-section"> Amount of Errors in Journalctl</h3>
-            <p class="error-section">Latest Report Count: <span class="value-box2">4748</span></p>
-            <p class="error-section">Second Latest Report Count: <span class="value-box2">4748</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
+            <p class="error-section">Latest Report Count: <span class="value-box2">$latest_journalctl_errors</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">$second_latest_journalctl_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">$delta_journalctl_errors</span></p>
         </div>
         <div class="code-block">
             <h3 class="error-section">Amount of Errors in Dmesg</h3>
-            <p class="error-section">Latest Report Count: <span class="value-box2">2</span></p>
-            <p class="error-section">Second Latest Report Count: <span class="value-box2">2</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
+            <p class="error-section">Latest Report Count: <span class="value-box2">$latest_dmesg_errors</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">$second_latest_dmesg_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">$delta_dmesg_errors</span></p>
         </div>
         <div class="code-block">
             <h3 class="error-section">Amount of Errors in /var/log/auth.log</h3>
-            <p class="error-section">Latest Report Count: <span class="value-box2">11</span></p>
-            <p class="error-section">Second Latest Report Count: <span class="value-box2">11</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
+            <p class="error-section">Latest Report Count: <span class="value-box2">$latest_authlog_errors</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">$second_latest_authlog_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">$delta_authlog_errors</span></p>
         </div>
 EOF
 elif [ "$system_type" = "rhel" ]; then
@@ -798,21 +798,21 @@ elif [ "$system_type" = "rhel" ]; then
         </div>
         <div class="code-block">
             <h3 class="error-section"> Amount of Errors in Journalctl</h3>
-            <p class="error-section">Latest Report Count: <span class="value-box2">4748</span></p>
-            <p class="error-section">Second Latest Report Count: <span class="value-box2">4748</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
+            <p class="error-section">Latest Report Count: <span class="value-box2">$latest_journalctl_errors</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">$second_latest_journalctl_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">$delta_journalctl_errors</span></p>
         </div>
         <div class="code-block">
             <h3 class="error-section">Amount of Errors in Dmesg</h3>
-            <p class="error-section">Latest Report Count: <span class="value-box2">2</span></p>
-            <p class="error-section">Second Latest Report Count: <span class="value-box2">2</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
+            <p class="error-section">Latest Report Count: <span class="value-box2">$latest_dmesg_errors</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">$second_latest_dmesg_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">$delta_dmesg_errors</span></p>
         </div>
         <div class="code-block">
             <h3 class="error-section">Amount of Errors in /var/log/auth.log</h3>
-            <p class="error-section">Latest Report Count: <span class="value-box2">11</span></p>
-            <p class="error-section">Second Latest Report Count: <span class="value-box2">11</span></p>
-            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">0</span></p>
+            <p class="error-section">Latest Report Count: <span class="value-box2">$latest_authlog_errors</span></p>
+            <p class="error-section">Second Latest Report Count: <span class="value-box2">$second_latest_authlog_errors</span></p>
+            <p class="delta">Delta (Latest vs Second Latest): <span class="value-box2">$delta_authlog_errors</span></p>
         </div>
         <div class="code-block">
             <h3 class="error-section">Amount of Errors in /var/log/secure</h3>
@@ -833,4 +833,3 @@ cat <<EOF >> "$diff_file"
 EOF
 
 echo "Diff report generated: $diff_file"
-
